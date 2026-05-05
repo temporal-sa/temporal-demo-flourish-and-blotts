@@ -25,7 +25,8 @@ from worker.activities.compensation_activities import (
     recall_delivery,
 )
 from worker.activities.claude_activities import call_claude
-from worker.activities.repair_activities import execute_repair_tool, execute_approved_plan_step
+from worker.activities.repair_activities import execute_approved_plan_step
+from shared.agent_harness import dispatch_tool_activity
 from worker.activities.slack_activities import (
     post_initial_slack_message,
     post_slack_reply,
@@ -34,20 +35,10 @@ from worker.activities.slack_activities import (
 from worker.activities.email_activities import send_customer_confirmation_email
 from worker.workflows.ops_agent_conversation_workflow import OpsAgentConversationWorkflow
 from worker.activities.ops_activities import (
-    list_orders,
-    describe_order,
-    describe_workflow,
-    get_workflow_history,
-    aggregate_repair_failures,
-    list_inventory,
-    get_book,
-    cancel_order,
-    adjust_inventory,
     post_confirmation_card,
     post_order_picker,
     collapse_buttons,
     post_thread_reply,
-    post_rich_thread_reply,
     post_thread_closed_notice,
 )
 
@@ -109,26 +100,16 @@ async def main() -> None:
             release_inventory_reservation,
             recall_delivery,
             call_claude,
-            execute_repair_tool,
+            dispatch_tool_activity,
             execute_approved_plan_step,
             post_initial_slack_message,
             post_slack_reply,
             process_conversation_message,
             send_customer_confirmation_email,
-            list_orders,
-            describe_order,
-            describe_workflow,
-            get_workflow_history,
-            aggregate_repair_failures,
-            list_inventory,
-            get_book,
-            cancel_order,
-            adjust_inventory,
             post_confirmation_card,
             post_order_picker,
             collapse_buttons,
             post_thread_reply,
-            post_rich_thread_reply,
             post_thread_closed_notice,
         ],
     )

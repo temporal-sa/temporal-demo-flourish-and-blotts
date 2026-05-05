@@ -19,8 +19,13 @@ from shared.agent_harness.policy import (
     ToolPolicyError,
     validate_tool,
 )
-from shared.agent_harness.registry import register_tool
+from shared.agent_harness.registry import (
+    TOOL_HANDLERS,
+    call_tool_handler,
+    register_tool,
+)
 from shared.agent_harness.ctx import AgentCtx
+from shared.agent_harness.dispatch_activity import dispatch_tool_activity
 from shared.agent_harness.loop import (
     DEFAULT_CLAUDE_RETRY,
     ExecutedTool,
@@ -41,11 +46,14 @@ __all__ = [
     "HitlInteraction",
     "Pass",
     "Reject",
+    "TOOL_HANDLERS",
     "ToolCategory",
     "ToolDef",
     "ToolPolicyError",
     "TurnResult",
+    "call_tool_handler",
     "dispatch_tool",
+    "dispatch_tool_activity",
     "guard",
     "register_tool",
     "run_agent_turn",

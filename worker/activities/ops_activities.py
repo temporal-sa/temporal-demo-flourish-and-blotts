@@ -94,7 +94,6 @@ def _since_clause(since_hours: Optional[int]) -> str:
     return f" AND StartTime > '{cutoff.isoformat()}'"
 
 
-@activity.defn
 async def list_orders(input: ListOrdersInput) -> ListOrdersResult:
     """List orders, optionally filtered by status/failure_type/age.
 
@@ -156,7 +155,6 @@ def _flatten_sa(search_attributes: dict) -> dict:
     return flattened
 
 
-@activity.defn
 async def describe_order(input: DescribeOrderInput) -> DescribeOrderResult:
     """Describe the OrderWorkflow plus every workflow tagged with the same
     OrderId search attribute (repair workflow, customer-confirmation child,
@@ -197,7 +195,6 @@ async def describe_order(input: DescribeOrderInput) -> DescribeOrderResult:
     )
 
 
-@activity.defn
 async def describe_workflow(input: DescribeWorkflowInput) -> DescribeWorkflowResult:
     """Describe ANY workflow by ID — useful when the agent has a workflow_id
     from describe_order's related_workflows or list_orders and wants to drill in.
@@ -278,7 +275,6 @@ def _summarize_event(event) -> "WorkflowHistoryEvent":
     )
 
 
-@activity.defn
 async def get_workflow_history(input: GetWorkflowHistoryInput) -> GetWorkflowHistoryResult:
     """Return a structured summary of a workflow's event history. The agent
     uses this to understand exactly what happened in a workflow — which
@@ -301,7 +297,6 @@ async def get_workflow_history(input: GetWorkflowHistoryInput) -> GetWorkflowHis
     )
 
 
-@activity.defn
 async def aggregate_repair_failures(input: AggregateFailuresInput) -> AggregateFailuresResult:
     """List recent OrderRepairWorkflows and bucket them by FailureType search attribute."""
     client = await _get_client()
@@ -329,7 +324,6 @@ async def _fetch_catalog_from_api() -> list[dict]:
         return response.json()
 
 
-@activity.defn
 async def list_inventory() -> ListInventoryResult:
     catalog_items = await _fetch_catalog_from_api()
     items = [
@@ -346,7 +340,6 @@ async def list_inventory() -> ListInventoryResult:
     return ListInventoryResult(items=items)
 
 
-@activity.defn
 async def get_book(input: GetBookInput) -> GetBookResult:
     catalog_items = await _fetch_catalog_from_api()
     matching_book = next(
@@ -379,7 +372,6 @@ _cancel_idempotency_cache: dict[str, CancelOrderResult] = {}
 _adjust_idempotency_cache: dict[str, AdjustInventoryResult] = {}
 
 
-@activity.defn
 async def cancel_order(input: CancelOrderInput) -> CancelOrderResult:
     cached = _cancel_idempotency_cache.get(input.tool_use_id)
     if cached is not None:
@@ -408,7 +400,6 @@ async def cancel_order(input: CancelOrderInput) -> CancelOrderResult:
     return result
 
 
-@activity.defn
 async def adjust_inventory(input: AdjustInventoryInput) -> AdjustInventoryResult:
     """Apply an inventory delta. Routes through the API so the storefront and
     every other reader (worker, agent) see the same canonical in_stock count.
@@ -588,7 +579,6 @@ async def post_thread_reply(input: PostThreadReplyInput) -> PostThreadReplyResul
     return PostThreadReplyResult(message_ts=response["ts"])
 
 
-@activity.defn
 async def post_rich_thread_reply(input: PostRichThreadReplyInput) -> PostThreadReplyResult:
     """Post a Block-Kit reply in the ops-agent thread. SlackApiError (e.g.
     invalid_blocks) is RETURNED as is_error so the agent can self-correct on

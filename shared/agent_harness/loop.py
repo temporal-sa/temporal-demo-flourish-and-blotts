@@ -84,11 +84,11 @@ async def dispatch_tool(
                 impl_input = tool_def.make_impl_input(args, tool_use, agent_ctx)
                 if impl_input is None:
                     result = await workflow.execute_activity(
-                        tool_def.impl, start_to_close_timeout=tool_def.timeout,
+                        tool_def.name, start_to_close_timeout=tool_def.timeout,
                     )
                 else:
                     result = await workflow.execute_activity(
-                        tool_def.impl, impl_input, start_to_close_timeout=tool_def.timeout,
+                        tool_def.name, impl_input, start_to_close_timeout=tool_def.timeout,
                     )
             elif not tool_def.args_model.model_fields:
                 # Parameterless args model (e.g. list_inventory's
@@ -96,12 +96,12 @@ async def dispatch_tool(
                 # arg. Activities defined as `async def f() -> ...` would
                 # otherwise raise TypeError.
                 result = await workflow.execute_activity(
-                    tool_def.impl, start_to_close_timeout=tool_def.timeout,
+                    tool_def.name, start_to_close_timeout=tool_def.timeout,
                 )
             else:
                 # Default: pass the validated Pydantic args through.
                 result = await workflow.execute_activity(
-                    tool_def.impl, args, start_to_close_timeout=tool_def.timeout,
+                    tool_def.name, args, start_to_close_timeout=tool_def.timeout,
                 )
             return ToolResult(tool_use_id=tool_use.id, content=str(result))
         except Exception as error:

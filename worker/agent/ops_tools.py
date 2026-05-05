@@ -7,8 +7,9 @@ must carry an OPS_CONFIRMATION guard).
 
 Repair-toolkit ops tools (apply_containment_charm, dispatch_house_elf,
 reroute_via_floo, update_order_status, contact_customer, substitute_item)
-share the underlying execute_repair_tool activity with the repair agent
-but carry an ops_confirmation guard so the operator must approve each."""
+share the underlying handler functions with the repair agent (dispatched
+through dispatch_tool_activity) but carry an ops_confirmation guard so
+the operator must approve each."""
 from __future__ import annotations
 
 from datetime import timedelta
@@ -25,7 +26,6 @@ with workflow.unsafe.imports_passed_through():
         AdjustInventoryInput,
         CancelOrderInput,
         ClaudeToolUse,
-        ToolCallInput,
     )
     from worker.activities.ops_activities import (
         adjust_inventory,
@@ -39,7 +39,16 @@ with workflow.unsafe.imports_passed_through():
         list_orders,
         post_rich_thread_reply,
     )
-    from worker.activities.repair_activities import execute_repair_tool
+    from worker.activities.repair_activities import (
+        apply_containment_charm,
+        check_inventory,
+        contact_customer,
+        dispatch_house_elf,
+        reroute_via_floo,
+        substitute_item,
+        update_order_status,
+        verify_customer_credentials,
+    )
     from worker.agent.guards import ops_confirmation
     from worker.agent.interactions import post_order_picker_interaction
     from worker.agent.tool_args import (
@@ -68,18 +77,6 @@ with workflow.unsafe.imports_passed_through():
 _LONG_TIMEOUT = timedelta(seconds=120)
 _DEFAULT_TIMEOUT = timedelta(seconds=30)
 _READ_TIMEOUT = timedelta(seconds=10)
-
-
-def _repair_tool_call_input(tool_name: str):
-    """Same factory as in repair_tools.py — build a ToolCallInput targeted
-    at execute_repair_tool with the given tool name."""
-    def make(args, tool_use: ClaudeToolUse, agent_ctx) -> ToolCallInput:
-        return ToolCallInput(
-            name=tool_name,
-            args=args.model_dump(),
-            order_id=args.model_dump().get("order_id", ""),
-        )
-    return make
 
 
 def _cancel_order_make_input(
@@ -206,8 +203,7 @@ CHECK_INVENTORY_OPS_TOOL = register_tool(ToolDef(
     description="Check current physical inventory level for a book at the warehouse.",
     args_model=CheckInventoryArgs,
     category=ToolCategory.READ,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("check_inventory"),
+    impl=check_inventory,
     timeout=_READ_TIMEOUT,
 ))
 
@@ -216,8 +212,7 @@ VERIFY_CUSTOMER_CREDENTIALS_OPS_TOOL = register_tool(ToolDef(
     description="Verify whether a customer holds a credential (e.g. ministry approval).",
     args_model=VerifyCustomerCredentialsArgs,
     category=ToolCategory.READ,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("verify_customer_credentials"),
+    impl=verify_customer_credentials,
     timeout=_READ_TIMEOUT,
 ))
 
@@ -263,8 +258,7 @@ APPLY_CONTAINMENT_CHARM_OPS_TOOL = register_tool(ToolDef(
     args_model=ApplyContainmentCharmArgs,
     category=ToolCategory.MUTATING,
     guards=(ops_confirmation,),
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("apply_containment_charm"),
+    impl=apply_containment_charm,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
@@ -277,8 +271,7 @@ DISPATCH_HOUSE_ELF_OPS_TOOL = register_tool(ToolDef(
     args_model=DispatchHouseElfArgs,
     category=ToolCategory.MUTATING,
     guards=(ops_confirmation,),
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("dispatch_house_elf"),
+    impl=dispatch_house_elf,
     timeout=_LONG_TIMEOUT,
 ))
 
@@ -292,8 +285,7 @@ REROUTE_VIA_FLOO_OPS_TOOL = register_tool(ToolDef(
     args_model=RerouteViaFlooArgs,
     category=ToolCategory.MUTATING,
     guards=(ops_confirmation,),
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("reroute_via_floo"),
+    impl=reroute_via_floo,
     timeout=_LONG_TIMEOUT,
 ))
 
@@ -303,8 +295,7 @@ UPDATE_ORDER_STATUS_OPS_TOOL = register_tool(ToolDef(
     args_model=UpdateOrderStatusArgs,
     category=ToolCategory.MUTATING,
     guards=(ops_confirmation,),
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("update_order_status"),
+    impl=update_order_status,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
@@ -317,8 +308,7 @@ SUBSTITUTE_ITEM_OPS_TOOL = register_tool(ToolDef(
     args_model=SubstituteItemArgs,
     category=ToolCategory.MUTATING,
     guards=(ops_confirmation,),
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("substitute_item"),
+    impl=substitute_item,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
@@ -328,8 +318,7 @@ CONTACT_CUSTOMER_OPS_TOOL = register_tool(ToolDef(
     args_model=ContactCustomerArgs,
     category=ToolCategory.MUTATING,
     guards=(ops_confirmation,),
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("contact_customer"),
+    impl=contact_customer,
     timeout=_DEFAULT_TIMEOUT,
 ))
 

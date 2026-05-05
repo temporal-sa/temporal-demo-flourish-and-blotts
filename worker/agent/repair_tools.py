@@ -15,9 +15,16 @@ with workflow.unsafe.imports_passed_through():
         ToolDef,
         register_tool,
     )
-    from shared.models import ClaudeToolUse, ToolCallInput
     from worker.activities.ops_activities import list_inventory
-    from worker.activities.repair_activities import execute_repair_tool
+    from worker.activities.repair_activities import (
+        apply_containment_charm,
+        check_inventory,
+        contact_customer,
+        dispatch_house_elf,
+        reroute_via_floo,
+        update_order_status,
+        verify_customer_credentials,
+    )
     from worker.agent.guards import substitute_item_customer_confirmation
     from worker.agent.interactions import (
         escalate_to_human_interaction,
@@ -37,18 +44,6 @@ with workflow.unsafe.imports_passed_through():
         UpdateOrderStatusArgs,
         VerifyCustomerCredentialsArgs,
     )
-
-
-def _repair_tool_call_input(tool_name: str):
-    """Factory: build a make_impl_input that wraps args into a ToolCallInput
-    targeted at execute_repair_tool with the given tool name."""
-    def make(args, tool_use: ClaudeToolUse, agent_ctx) -> ToolCallInput:
-        return ToolCallInput(
-            name=tool_name,
-            args=args.model_dump(),
-            order_id=getattr(args, "order_id", "") or args.model_dump().get("order_id", ""),
-        )
-    return make
 
 
 _LONG_TIMEOUT = timedelta(seconds=120)
@@ -79,8 +74,7 @@ CHECK_INVENTORY_REPAIR_TOOL = register_tool(ToolDef(
     ),
     args_model=CheckInventoryArgs,
     category=ToolCategory.READ,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("check_inventory"),
+    impl=check_inventory,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
@@ -93,8 +87,7 @@ APPLY_CONTAINMENT_CHARM_REPAIR_TOOL = register_tool(ToolDef(
     ),
     args_model=ApplyContainmentCharmArgs,
     category=ToolCategory.AUTONOMOUS,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("apply_containment_charm"),
+    impl=apply_containment_charm,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
@@ -107,8 +100,7 @@ DISPATCH_HOUSE_ELF_REPAIR_TOOL = register_tool(ToolDef(
     ),
     args_model=DispatchHouseElfArgs,
     category=ToolCategory.AUTONOMOUS,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("dispatch_house_elf"),
+    impl=dispatch_house_elf,
     timeout=_LONG_TIMEOUT,
 ))
 
@@ -120,8 +112,7 @@ REROUTE_VIA_FLOO_REPAIR_TOOL = register_tool(ToolDef(
     ),
     args_model=RerouteViaFlooArgs,
     category=ToolCategory.AUTONOMOUS,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("reroute_via_floo"),
+    impl=reroute_via_floo,
     timeout=_LONG_TIMEOUT,
 ))
 
@@ -130,8 +121,7 @@ UPDATE_ORDER_STATUS_REPAIR_TOOL = register_tool(ToolDef(
     description="Update the status and add a note to an order in the OMS.",
     args_model=UpdateOrderStatusArgs,
     category=ToolCategory.AUTONOMOUS,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("update_order_status"),
+    impl=update_order_status,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
@@ -140,8 +130,7 @@ CONTACT_CUSTOMER_REPAIR_TOOL = register_tool(ToolDef(
     description="Send a notification owl (email) to the customer about their order status.",
     args_model=ContactCustomerArgs,
     category=ToolCategory.AUTONOMOUS,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("contact_customer"),
+    impl=contact_customer,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
@@ -153,8 +142,7 @@ VERIFY_CUSTOMER_CREDENTIALS_REPAIR_TOOL = register_tool(ToolDef(
     ),
     args_model=VerifyCustomerCredentialsArgs,
     category=ToolCategory.READ,
-    impl=execute_repair_tool,
-    make_impl_input=_repair_tool_call_input("verify_customer_credentials"),
+    impl=verify_customer_credentials,
     timeout=_DEFAULT_TIMEOUT,
 ))
 
