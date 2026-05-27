@@ -13,6 +13,7 @@ from shared.agent_harness import (
     ops_tool,
     repair_tool,
 )
+from worker.agent.tools._repair_context import is_inventory_mismatch
 
 with workflow.unsafe.imports_passed_through():
     from worker.agent.guards import ops_confirmation
@@ -57,7 +58,15 @@ async def dispatch_house_elf(args: DispatchHouseElfArgs, ctx: ToolCtx) -> str:
     """Dispatch a house elf for magical manual intervention. Use for tasks \
 requiring physical wizarding assistance: retrieving intercepted deliveries, \
 capturing escaped magical items, emergency repackaging, or any on-site \
-intervention."""
+    intervention. Cannot create, source, or retrieve unavailable inventory for an \
+inventory mismatch."""
+    if is_inventory_mismatch(ctx):
+        raise ValueError(
+            "ERROR: dispatch_house_elf cannot resolve inventory_mismatch. "
+            "Physical stock is unavailable; use list_inventory to find a "
+            "physically available substitute and then call substitute_item."
+        )
+
     rng = workflow.random()
     total_steps = rng.randint(5, 12)
     outcome = await ctx.activity(

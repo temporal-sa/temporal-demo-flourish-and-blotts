@@ -6,6 +6,7 @@ from datetime import timedelta
 from temporalio import workflow
 
 from shared.agent_harness import ToolCategory, ToolCtx, repair_tool
+from worker.agent.tools._repair_context import is_inventory_mismatch
 
 with workflow.unsafe.imports_passed_through():
     from shared.models import (
@@ -57,12 +58,20 @@ can resolve within the shop, without waiting on the customer. Use for: \
 (d) edge cases requiring human judgment that don't depend on the customer submitting \
 anything. The proposed_plan must be EXECUTABLE end-to-end at approval time — no \
 'wait for the customer to submit X' steps. Anything customer-driven belongs in \
-request_customer_confirmation instead. Calling this tool ends the repair turn — the \
+request_customer_confirmation instead. Inventory mismatches are not ops decisions; \
+use substitute_item for a physically available substitute. Calling this tool ends the repair turn — the \
 operator's decision is the final resolution."""
     from worker.workflows.slack_conversation_workflow import SlackConversationWorkflow
 
     repair_input: OrderRepairInput = ctx.input
     state: RepairAgentState = ctx.state
+
+    if is_inventory_mismatch(ctx):
+        raise ValueError(
+            "ERROR: inventory_mismatch is not an ops decision. Physical stock is "
+            "unavailable, so use list_inventory to find a substitute and call "
+            "substitute_item to start the customer approval workflow."
+        )
 
     proposed_plan = RepairPlan(
         steps=[

@@ -70,7 +70,8 @@ class VerifyCustomerCredentialsArgs(_StrictModel):
 
 
 # Executable tools only — HITL-trigger tools (escalate_to_human,
-# request_customer_confirmation) are intentionally excluded.
+# request_customer_confirmation) and customer-gated tools (substitute_item)
+# are intentionally excluded.
 TOOL_ARG_MODELS: dict[str, type[_StrictModel]] = {
     "check_inventory": CheckInventoryArgs,
     "apply_containment_charm": ApplyContainmentCharmArgs,
@@ -78,7 +79,6 @@ TOOL_ARG_MODELS: dict[str, type[_StrictModel]] = {
     "reroute_via_floo": RerouteViaFlooArgs,
     "update_order_status": UpdateOrderStatusArgs,
     "contact_customer": ContactCustomerArgs,
-    "substitute_item": SubstituteItemArgs,
     "verify_customer_credentials": VerifyCustomerCredentialsArgs,
 }
 

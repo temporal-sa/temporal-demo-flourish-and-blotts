@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Awaitable, Callable, TYPE_CHECKING
+from typing import Any, Awaitable, Callable, TYPE_CHECKING, get_type_hints
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -38,6 +38,22 @@ def derive_activity_name(callable_obj: Callable[..., Any]) -> str:
     """
     module_basename = callable_obj.__module__.rsplit(".", 1)[-1]
     return f"{module_basename}:{callable_obj.__name__}"
+
+
+def _derive_activity_result_type(callable_obj: Callable[..., Any]) -> type | None:
+    """Infer the result type so dynamic sub-activities decode dataclasses.
+
+    Dynamic activities are registered as returning Any, so the SDK cannot infer
+    return payload types from the registered activity. Tool helper functions do
+    carry precise annotations, so forward those to execute_activity.
+    """
+    try:
+        result_type = get_type_hints(callable_obj).get("return")
+    except Exception:
+        return None
+    if result_type is None or result_type is type(None) or result_type is Any:
+        return None
+    return result_type
 
 
 @dataclass(frozen=True)
@@ -101,6 +117,9 @@ class ToolCtx:
             "start_to_close_timeout": start_to_close_timeout,
             "summary": summary,
         }
+        result_type = _derive_activity_result_type(callable_obj)
+        if result_type is not None:
+            kwargs["result_type"] = result_type
         if heartbeat_timeout is not None:
             kwargs["heartbeat_timeout"] = heartbeat_timeout
         if retry_policy is not None:

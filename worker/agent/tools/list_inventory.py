@@ -23,6 +23,10 @@ with workflow.unsafe.imports_passed_through():
 _READ_TIMEOUT = timedelta(seconds=10)
 
 
+def _physical_stock(item: InventoryItem) -> int:
+    return item.physical_in_stock if item.physical_in_stock is not None else item.in_stock
+
+
 async def _read_catalog() -> ListInventoryResult:
     """Read the OMS catalog snapshot via the API.
 
@@ -61,7 +65,7 @@ async def list_inventory(args: ListInventoryArgs, ctx: ToolCtx) -> str:
     )
     lines = [
         f"- {item.book_id}: '{item.title}' by {item.author} "
-        f"(OMS in_stock={item.in_stock}, physical={item.physical_in_stock or item.in_stock})"
+        f"(OMS in_stock={item.in_stock}, physical={_physical_stock(item)})"
         for item in result.items
     ]
     return "Catalog inventory:\n" + "\n".join(lines)

@@ -13,6 +13,7 @@ from shared.agent_harness import (
     ops_tool,
     repair_tool,
 )
+from worker.agent.tools._repair_context import is_inventory_mismatch
 
 with workflow.unsafe.imports_passed_through():
     from worker.agent.guards import ops_confirmation
@@ -43,7 +44,19 @@ async def _update_oms_status(input: _UpdateStatusInput) -> str:
     timeout=_DEFAULT_TIMEOUT,
 )
 async def update_order_status(args: UpdateOrderStatusArgs, ctx: ToolCtx) -> str:
-    """Update the status and add a note to an order in the OMS."""
+    """Update the status and add a note to an order in the OMS. This only records
+    status; it does not perform fulfilment or make inventory available."""
+    if (
+        args.status == "repaired"
+        and is_inventory_mismatch(ctx)
+        and getattr(ctx.state, "staged_substitution", None) is None
+    ):
+        raise ValueError(
+            "ERROR: cannot mark inventory_mismatch as repaired without a "
+            "customer-approved substitute_item. A status update does not make "
+            "physical stock available."
+        )
+
     rng = workflow.random()
     return await ctx.activity(
         _update_oms_status,

@@ -9,6 +9,7 @@ with workflow.unsafe.imports_passed_through():
     from shared.agent_harness import AgentCtx, TurnResult, run_agent_turn
     from shared.catalog import get_book_by_id
     from shared.models import (
+        FailureType,
         OrderInput,
         OrderRepairInput,
         OrderRepairResult,
@@ -60,6 +61,16 @@ Instructions:
    submit paperwork or supply credentials — don't route those through Slack.
 5. Be efficient and decisive. This is a live order.
 6. Keep the wizarding theme — you're a proper magical OMS agent.
+
+INVENTORY MISMATCH RULES:
+- If the failure type is inventory_mismatch, physical stock for the ordered
+  item is unavailable. Do NOT escalate to ops and do NOT dispatch a house elf
+  to "find", "source", "retrieve", or "create" stock for the same item.
+- Use list_inventory to find a physically available substitute, then call
+  substitute_item. That tool initiates the customer approval workflow and
+  stages the approved substitute for the parent order workflow.
+- Only call update_order_status(status='repaired', ...) after substitute_item
+  succeeds. A status update by itself does not repair inventory.
 
 IMPORTANT — no "wait for customer" in ops-approved plans:
 When you propose an ops plan via escalate_to_human, it must be runnable end-to-end at
@@ -124,6 +135,17 @@ def _format_tools_executed(turn: TurnResult, state: RepairAgentState) -> list[st
     return executed_tools
 
 
+def _domain_unresolved_note(state: RepairAgentState, input: OrderRepairInput) -> str | None:
+    """Enforce repair invariants that cannot be satisfied by narration alone."""
+    if input.failure.failure_type == FailureType.INVENTORY_MISMATCH.value:
+        if state.staged_substitution is None:
+            return (
+                "Inventory mismatch is unresolved: physical stock is unavailable "
+                "and no customer-approved substitute_item was committed."
+            )
+    return None
+
+
 def _shape_repair_result(
     turn: TurnResult, state: RepairAgentState, input: OrderRepairInput,
 ) -> OrderRepairResult:
@@ -144,6 +166,20 @@ def _shape_repair_result(
             repair_steps_executed=tools_executed,
             requires_hitl=True,
             notes=state.customer_denial.note,
+        )
+
+    unresolved_note = _domain_unresolved_note(state, input)
+    if unresolved_note is not None:
+        workflow.upsert_search_attributes({
+            "RepairOutcome": ["unresolved"],
+            "OrderStatus": ["repair_in_progress"],
+        })
+        return OrderRepairResult(
+            status="unresolved",
+            outcome="unresolved",
+            repair_steps_executed=tools_executed,
+            requires_hitl=state.escalation_outcome is not None,
+            notes=unresolved_note,
         )
 
     # Ops escalation drove a terminal decision (the agent loop terminated).

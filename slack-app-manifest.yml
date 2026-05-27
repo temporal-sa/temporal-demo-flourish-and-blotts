@@ -17,6 +17,7 @@ settings:
   token_rotation_enabled: false
   event_subscriptions:
     bot_events:
+      - app_mention
       - message.channels
       - message.groups
   interactivity:
@@ -26,6 +27,7 @@ settings:
 oauth_config:
   scopes:
     bot:
+      - app_mentions:read
       - chat:write
       - chat:write.public
       - channels:history
@@ -34,3 +36,4 @@ oauth_config:
       - groups:read
       - im:history
       - mpim:history
+      - users:read

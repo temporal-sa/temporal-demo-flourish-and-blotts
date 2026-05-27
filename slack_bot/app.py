@@ -4,7 +4,7 @@ import logging
 import re
 
 from slack_bolt.async_app import AsyncApp
-from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
+from slack_bolt.adapter.socket_mode.websockets import AsyncSocketModeHandler
 from temporalio.client import Client
 from temporalio.contrib.pydantic import pydantic_data_converter
 

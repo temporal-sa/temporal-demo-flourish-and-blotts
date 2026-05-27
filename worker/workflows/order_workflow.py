@@ -14,6 +14,7 @@ with workflow.unsafe.imports_passed_through():
         CompensationInput,
         FailureType,
         OrderStatus,
+        RepairOutcome,
     )
     # Activity references come through pass-through. Activity modules pull in
     # heavy SDKs (anthropic, slack_sdk, aiosmtplib) whose transitive imports
@@ -34,6 +35,7 @@ from worker.workflows.order_repair_workflow import OrderRepairWorkflow
 # the activity and so bypass retries and go straight to the repair workflow.
 STEP_TIMEOUT = timedelta(seconds=30)
 COMPENSATION_TIMEOUT = timedelta(seconds=60)
+MAX_REPAIR_ATTEMPTS = 3
 
 OMS_STEPS = [
     ("process_payment",      "payment_processing"),
@@ -139,26 +141,36 @@ class OrderWorkflow:
 
         try:
             for activity_name, status_value in OMS_STEPS:
-                self._status = OrderStatus(status_value)
-                workflow.upsert_search_attributes({"OrderStatus": [status_value]})
+                repaired_this_step = False
 
-                try:
-                    result = await workflow.execute_activity(
-                        activity_fns[activity_name],
-                        order,
-                        start_to_close_timeout=STEP_TIMEOUT,
-                        schedule_to_close_timeout=timedelta(minutes=5),
-                    )
-                    self._steps_completed.append(f"{activity_name}: {result}")
-                    # Record the compensation for this step so we can roll back later.
-                    if activity_name in COMPENSATIONS:
-                        self._pending_compensations.append(
-                            (activity_name, COMPENSATIONS[activity_name])
+                while True:
+                    self._status = OrderStatus(status_value)
+                    workflow.upsert_search_attributes({"OrderStatus": [status_value]})
+
+                    try:
+                        result = await workflow.execute_activity(
+                            activity_fns[activity_name],
+                            order,
+                            start_to_close_timeout=STEP_TIMEOUT,
+                            schedule_to_close_timeout=timedelta(minutes=5),
                         )
+                        suffix = " (after repair)" if repaired_this_step else ""
+                        self._steps_completed.append(f"{activity_name}{suffix}: {result}")
+                        # Record the compensation for this step so we can roll back later.
+                        if activity_name in COMPENSATIONS:
+                            self._pending_compensations.append(
+                                (activity_name, COMPENSATIONS[activity_name])
+                            )
+                        break
 
-                except ActivityError as error:
-                    cause = error.cause
-                    if isinstance(cause, ApplicationError) and cause.type == "OrderFailure":
+                    except ActivityError as error:
+                        cause = error.cause
+                        if not (
+                            isinstance(cause, ApplicationError)
+                            and cause.type == "OrderFailure"
+                        ):
+                            raise
+
                         # Activity passes structured data as the first "detail" of the
                         # ApplicationError; cause.args[0] is the human-readable message.
                         details = list(cause.details) if cause.details else []
@@ -178,6 +190,19 @@ class OrderWorkflow:
                             "OrderStatus": [OrderStatus.REPAIR_IN_PROGRESS.value],
                             "FailureType": [failure_type],
                         })
+
+                        if self._repair_attempts >= MAX_REPAIR_ATTEMPTS:
+                            self._repair_outcome = RepairOutcome.UNRESOLVED.value
+                            self._notes = (
+                                f"Max repair attempts reached after {activity_name} "
+                                f"failed: {description}"
+                            )
+                            cancel_status = OrderStatus.CANCELLED_UNRESOLVED
+                            workflow.upsert_search_attributes({
+                                "RepairOutcome": [RepairOutcome.UNRESOLVED.value],
+                                "RequiresHITL": [self._requires_hitl],
+                            })
+                            break
 
                         repair_input = OrderRepairInput(
                             order_id=order.order_id,
@@ -211,10 +236,10 @@ class OrderWorkflow:
                             "RequiresHITL": [repair_result.requires_hitl],
                         })
 
-                        if repair_result.status == "cancelled":
+                        if repair_result.status != "resolved":
                             self._notes = repair_result.notes
                             cancel_status = CANCELLATION_STATUS.get(
-                                repair_result.outcome, OrderStatus.CANCELLED,
+                                repair_result.outcome, OrderStatus.CANCELLED_UNRESOLVED,
                             )
                             break
 
@@ -231,23 +256,12 @@ class OrderWorkflow:
                                 "BookTitle": [order.book_title],
                             })
 
-                        # Resolved — continue from this step (retry the step once after repair).
-                        try:
-                            result = await workflow.execute_activity(
-                                activity_fns[activity_name],
-                                order,
-                                start_to_close_timeout=STEP_TIMEOUT,
-                            )
-                            self._steps_completed.append(f"{activity_name} (after repair): {result}")
-                            if activity_name in COMPENSATIONS:
-                                self._pending_compensations.append(
-                                    (activity_name, COMPENSATIONS[activity_name])
-                                )
-                        except ActivityError:
-                            # Post-repair failure: don't loop forever in the demo.
-                            self._steps_completed.append(f"{activity_name} (post-repair): proceeded")
-                    else:
-                        raise
+                        # Resolved — retry the same OMS step. A second failure stays
+                        # on this step and starts another bounded repair attempt.
+                        repaired_this_step = True
+
+                if cancel_status is not None:
+                    break
 
             if cancel_status is not None:
                 await self._run_compensations(order)
