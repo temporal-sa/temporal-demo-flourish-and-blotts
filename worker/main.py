@@ -13,6 +13,7 @@ from worker.workflows.order_workflow import OrderWorkflow
 from worker.workflows.order_repair_workflow import OrderRepairWorkflow
 from worker.workflows.customer_confirmation_workflow import CustomerConfirmationWorkflow
 from worker.workflows.slack_conversation_workflow import SlackConversationWorkflow
+from worker.workflows.ops_chat_workflow import OpsChatWorkflow
 from worker.activities.order_activities import (
     process_payment,
     verify_credentials,
@@ -89,6 +90,7 @@ async def main() -> None:
             CustomerConfirmationWorkflow,
             SlackConversationWorkflow,
             OpsAgentConversationWorkflow,
+            OpsChatWorkflow,
         ],
         activities=[
             process_payment,

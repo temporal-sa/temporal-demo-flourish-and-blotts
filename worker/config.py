@@ -9,7 +9,11 @@ SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN", "")
 SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID", "")
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
 TEMPORAL_NAMESPACE = os.getenv("TEMPORAL_NAMESPACE", "default")
-TEMPORAL_UI_URL = os.getenv("TEMPORAL_UI_URL", "http://localhost:8233")
+# Base URL of the Temporal UI *namespace* view. Deep links append `/workflows/<id>`.
+# Local dev points at the dev-server default namespace; on Temporal Cloud this is
+# set to the derived Cloud namespace URL, e.g.
+# https://cloud.temporal.io/namespaces/tmprl-dem-cld-flourish-and-blotts.<acct>
+TEMPORAL_UI_URL = os.getenv("TEMPORAL_UI_URL", "http://localhost:8233/namespaces/default")
 
 # API base URL — used by the worker for intra-container HTTP calls (canonical
 # inventory store: /api/inventory/{reserve,release,adjust}, /api/catalog).

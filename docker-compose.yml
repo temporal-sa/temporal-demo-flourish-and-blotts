@@ -71,7 +71,7 @@ services:
       context: .
       dockerfile: ui/Dockerfile
       args:
-        - VITE_TEMPORAL_UI_URL=${TEMPORAL_UI_URL:-http://localhost:8233}
+        - VITE_TEMPORAL_UI_URL=${TEMPORAL_UI_URL:-http://localhost:8233/namespaces/default}
         - VITE_MAILHOG_UI_URL=${MAILHOG_UI_URL:-http://localhost:8025}
     ports:
       - "3000:80"

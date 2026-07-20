@@ -274,10 +274,20 @@ retry semantics) but never wakes up the agent.
 
 ---
 
-## The ops Slack agent
+## The ops agent
 
-A separate flow from the repair agent. Mention `@ops-agent` (or your bot user) in any channel
-the bot belongs to:
+A separate flow from the repair agent — a long-lived, per-conversation agent that introspects
+live workflow state and answers operator questions through the same declarative tool harness.
+It has two interchangeable front-ends:
+
+- **In-dashboard chat (default — no Slack required).** Open the Ops Dashboard and click
+  **🪄 Ops Agent** to chat in the browser. Each conversation is an `OpsChatWorkflow` running the
+  read-only ops tools via the shared `run_agent_turn`; the transcript is a workflow query the
+  page polls, so every message is a durable, replayable Temporal execution you can open in the
+  Temporal UI. This is the front-end used on tmprl-demo.cloud.
+- **Slack (optional / legacy).** With a Slack app configured, the same agent — plus mutating
+  tools gated behind Slack confirmation cards — answers when you mention `@ops-agent` in a
+  channel the bot belongs to:
 
 ```
 @ops-agent what's been failing in the last hour?
@@ -374,9 +384,12 @@ message, every tool call, and every confirmation in the Temporal UI — includin
 | `MAILHOG_UI_URL` | no | The host-accessible MailHog web UI for the storefront's "Open MailHog" button. Default `http://localhost:8025`. |
 | `TEMPORAL_UI_URL` | no | Default `http://localhost:8233` for the storefront's deep links into the Temporal UI. |
 
-Slack setup is optional — the demo runs perfectly without it; you just won't see the ops
-escalation path or the `@ops-agent` flow. To enable, install the manifest at
-`slack-app-manifest.yml` into a workspace you control and set the three Slack env vars above.
+Slack setup is optional. The conversational ops agent is always available in the Ops Dashboard
+chat (**🪄 Ops Agent**) with no Slack required. Configuring Slack *additionally* exposes the same
+agent via `@ops-agent` mentions and enables the ops-escalation approval path (the
+`gringotts_failure` / `payment_timeout` / `warehouse_failure` forced failures, which post a plan
+to Slack for approve/deny). To enable it, install the manifest at `slack-app-manifest.yml` into a
+workspace you control and set the three Slack env vars above.
 
 ---
 
@@ -416,6 +429,33 @@ escalation path or the `@ops-agent` flow. To enable, install the manifest at
   `forced_failure=gringotts_failure` on the order.
 
 ---
+
+## Deploying to tmprl-demo.cloud
+
+This demo is onboarded to the internal [tmprl-demo.cloud](https://tmprl-demo.cloud) platform via a
+single `DemoProject` custom resource committed to the `tmprl-demo-cloud-registry` repo
+(`projects/demo/flourish-and-blotts.yaml`). Flux applies it and the registry operator builds the
+images, provisions a Temporal Cloud namespace, and reconciles everything else. Highlights:
+
+- **No Slack.** The ops agent runs entirely in the dashboard chat, so the cloud deployment needs
+  no Slack app or tokens.
+- **Components:** `worker`, `api`, `ui`, and `mailhog` (the fake SMTP inbox). MailHog is built
+  from `mailhog/Dockerfile` and its web inbox is exposed at `/mailhog`.
+- **Temporal auth is platform-managed.** The app only speaks plaintext `localhost:7233`, so each
+  Temporal-using component opts into the platform's `temporalProxy` sidecar — no code change.
+- **Search attributes** (`OrderId`, `OrderStatus`, `FailureType`, …) are declared in the
+  `DemoProject` and created by the operator on the Cloud namespace.
+- **Public ingress** routes `/api` + `/hitl` → api, `/mailhog` → mailhog, and `/` → ui, so the
+  storefront and customer-HITL links work without a login.
+
+Two AWS Secrets Manager secrets are created before deploy, under
+`tmprl-dem-cld/flourish-and-blotts/`:
+
+- `anthropic-credentials` → `{ "ANTHROPIC_API_KEY": "sk-ant-…" }`
+- `hitl-token` → `{ "HITL_TOKEN_SECRET": "<random string>" }`
+
+The registry PR carries the exact `aws secretsmanager` commands and the one env value
+(`TEMPORAL_UI_URL`) that includes the Temporal Cloud account suffix.
 
 ## Out of scope
 

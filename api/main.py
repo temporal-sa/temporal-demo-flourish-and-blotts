@@ -18,6 +18,8 @@ from shared.models import (
     OrderInput,
     SlackActionSignal,
     CustomerDecisionSignal,
+    OpsChatInput,
+    OpsChatMessageSignal,
 )
 from shared.catalog import CATALOG, get_book_by_id
 from shared.hitl_tokens import verify_token
@@ -25,11 +27,13 @@ from worker.config import (
     TEMPORAL_HOST,
     TEMPORAL_NAMESPACE,
     TEMPORAL_UI_URL,
+    MAILHOG_UI_URL,
     TASK_QUEUE,
     HITL_TOKEN_SECRET,
 )
 from worker.workflows.order_workflow import OrderWorkflow
 from worker.workflows.slack_conversation_workflow import SlackConversationWorkflow
+from worker.workflows.ops_chat_workflow import OpsChatWorkflow
 
 # Customer HITL email links expire after 24h (matches the workflow's HITL timeout).
 HITL_TOKEN_MAX_AGE_SECONDS = 24 * 60 * 60
@@ -84,7 +88,7 @@ def _wf_to_order(workflow_execution) -> dict:
             if workflow_execution.status
             else "RUNNING"
         ),
-        "temporal_url": f"{TEMPORAL_UI_URL}/namespaces/default/workflows/{workflow_id}",
+        "temporal_url": f"{TEMPORAL_UI_URL}/workflows/{workflow_id}",
     }
 
 app.add_middleware(
@@ -239,6 +243,14 @@ async def get_catalog():
         }
         for book in CATALOG
     ]
+
+
+@app.get("/api/config")
+async def get_config():
+    """Runtime UI config so the SPA doesn't bake deploy-specific URLs at build time.
+    On Temporal Cloud these resolve to the derived namespace URL and the public
+    MailHog subpath; locally they fall back to the dev defaults."""
+    return {"temporal_ui_url": TEMPORAL_UI_URL, "mailhog_ui_url": MAILHOG_UI_URL}
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +421,7 @@ async def place_order(request: PlaceOrderRequest):
     return {
         "order_id": order_id,
         "workflow_id": f"order-{order_id}",
-        "temporal_url": f"{TEMPORAL_UI_URL}/namespaces/default/workflows/order-{order_id}",
+        "temporal_url": f"{TEMPORAL_UI_URL}/workflows/order-{order_id}",
     }
 
 
@@ -761,3 +773,60 @@ async def orders_stream():
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Ops-agent chat — Slack-free conversational agent, driven from the dashboard.
+# Each conversation is one OpsChatWorkflow (read-only ops tools). The API signals
+# operator messages in and polls the transcript query out; the workflow is a
+# durable, replayable entity you can open in the Temporal UI like any other.
+# ---------------------------------------------------------------------------
+
+class OpsChatMessageRequest(BaseModel):
+    text: str
+    user_name: str = "Operator"
+
+
+@app.post("/api/ops/chat/{conversation_id}/message")
+async def ops_chat_send(conversation_id: str, request: OpsChatMessageRequest):
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="message text required")
+    import datetime
+    client = await get_client()
+    # SignalWithStart: starts the workflow on the first message and signals the
+    # already-running workflow on subsequent messages (atomic + idempotent).
+    await client.start_workflow(
+        OpsChatWorkflow.run,
+        OpsChatInput(conversation_id=conversation_id, user_name=request.user_name),
+        id=f"ops-chat-{conversation_id}",
+        task_queue=TASK_QUEUE,
+        start_signal="send_message",
+        start_signal_args=[
+            OpsChatMessageSignal(
+                text=request.text,
+                user_name=request.user_name,
+                timestamp=str(datetime.datetime.utcnow().timestamp()),
+            ),
+        ],
+    )
+    return {"status": "sent"}
+
+
+@app.get("/api/ops/chat/{conversation_id}")
+async def ops_chat_transcript(conversation_id: str):
+    client = await get_client()
+    handle = client.get_workflow_handle(f"ops-chat-{conversation_id}")
+    try:
+        transcript = await handle.query("transcript")
+    except Exception:
+        # No workflow yet (chat not started) or query failed — empty transcript.
+        return {"turns": [], "processing": False, "closed": False}
+    # The query result crosses the pydantic data converter; normalize to a dict.
+    if isinstance(transcript, dict):
+        return transcript
+    if hasattr(transcript, "model_dump"):
+        return transcript.model_dump()
+    from dataclasses import asdict, is_dataclass
+    if is_dataclass(transcript):
+        return asdict(transcript)
+    return {"turns": [], "processing": False, "closed": False}

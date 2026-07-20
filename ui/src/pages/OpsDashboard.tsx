@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import type { Order, Stats } from '../types'
-import { fetchStats, fireBulkOrders, approveOrder, denyOrder, subscribeToOrders } from '../api'
+import { fetchStats, fireBulkOrders, approveOrder, denyOrder, subscribeToOrders, fetchConfig } from '../api'
 import StatsBar from '../components/StatsBar'
 import FilterPanel from '../components/FilterPanel'
 import OrderTable from '../components/OrderTable'
+import OpsAgentChat from '../components/OpsAgentChat'
 
-const TEMPORAL_UI = import.meta.env.VITE_TEMPORAL_UI_URL || 'http://localhost:8233'
+const DEFAULT_TEMPORAL_UI = import.meta.env.VITE_TEMPORAL_UI_URL || 'http://localhost:8233/namespaces/default'
 
 interface Filters {
   status: string
@@ -23,6 +24,13 @@ export default function OpsDashboard() {
   const [bulkResult, setBulkResult] = useState<string | null>(null)
   const [liveConnected, setLiveConnected] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<string | null>(null)
+  const [showChat, setShowChat] = useState(false)
+  const [temporalUi, setTemporalUi] = useState(DEFAULT_TEMPORAL_UI)
+
+  // Runtime config — correct Temporal UI URL on Cloud; falls back to the default.
+  useEffect(() => {
+    fetchConfig().then(c => { if (c?.temporal_ui_url) setTemporalUi(c.temporal_ui_url) }).catch(() => {})
+  }, [])
 
   // Stats refresh
   useEffect(() => {
@@ -109,8 +117,19 @@ export default function OpsDashboard() {
             <span className={`inline-block w-2 h-2 rounded-full ${liveConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
             {liveConnected ? 'Live' : 'Connecting...'}
           </div>
+          <button
+            onClick={() => setShowChat(v => !v)}
+            className="text-xs px-3 py-1.5 rounded font-semibold"
+            style={{
+              backgroundColor: showChat ? 'var(--hp-gold)' : 'transparent',
+              color: showChat ? 'var(--hp-navy)' : 'var(--hp-gold)',
+              border: '1px solid var(--hp-gold)',
+            }}
+          >
+            🪄 Ops Agent
+          </button>
           <a
-            href={TEMPORAL_UI}
+            href={temporalUi}
             target="_blank"
             rel="noreferrer"
             className="text-xs px-3 py-1.5 rounded font-semibold"
@@ -123,6 +142,9 @@ export default function OpsDashboard() {
 
       {/* Stats */}
       <StatsBar stats={stats} />
+
+      {/* Ops agent chat — toggled from the header button */}
+      {showChat && <OpsAgentChat />}
 
       {/* Bulk order fire */}
       <div

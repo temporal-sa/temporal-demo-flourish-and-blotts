@@ -49,7 +49,7 @@ async def post_initial_slack_message(input: PostInitialMessageInput) -> str:
 
     order = input.order_input
     failure = input.failure
-    temporal_url = f"{TEMPORAL_UI_URL}/namespaces/default/workflows/{input.workflow_id}"
+    temporal_url = f"{TEMPORAL_UI_URL}/workflows/{input.workflow_id}"
 
     failure_emoji = {
         "monster_book_escape": "📚💥",
