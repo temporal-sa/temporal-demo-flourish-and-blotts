@@ -64,3 +64,20 @@ export interface PendingDecision {
   proposed_action: string
   options: PendingDecisionOption[]
 }
+
+export interface OpsChatTurn {
+  role: string // "human" | "agent"
+  content: string
+  timestamp: string
+}
+
+export interface OpsChatTranscript {
+  turns: OpsChatTurn[]
+  processing: boolean
+  closed: boolean
+}
+
+export interface AppConfig {
+  temporal_ui_url: string
+  mailhog_ui_url: string
+}

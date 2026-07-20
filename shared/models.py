@@ -587,3 +587,35 @@ class PostRichThreadReplyInput:
     thread_ts: str
     blocks: list[dict] = field(default_factory=list)
     fallback_text: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Web Ops-Agent (in-dashboard chat — the Slack-free conversational entity)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class OpsChatInput:
+    """Input to OpsChatWorkflow.run — one workflow per dashboard chat session.
+    conversation_id is part of the deterministic workflow ID so the same session
+    always maps to the same workflow (SignalWithStart routes repeat messages to
+    the running workflow)."""
+    conversation_id: str
+    user_name: str = "Operator"
+
+
+@dataclass
+class OpsChatMessageSignal:
+    """An operator message typed into the dashboard ops-agent chat."""
+    text: str
+    user_name: str = "Operator"
+    timestamp: str = ""
+
+
+@dataclass
+class OpsChatTranscript:
+    """Queryable view of the chat so the dashboard can poll and render it. The
+    workflow appends a ConversationTurn per human message and per agent reply;
+    `processing` is True while a turn is mid-flight (agent is thinking)."""
+    turns: list[ConversationTurn] = field(default_factory=list)
+    processing: bool = False
+    closed: bool = False

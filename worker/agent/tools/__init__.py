@@ -18,7 +18,8 @@ from pathlib import Path
 
 from shared.agent_harness.decorators import OPS_TOOLS, REPAIR_TOOLS
 from shared.agent_harness.registry import TOOL_HANDLERS, _resolve_arg_type
-from worker.agent.tools._prompts import build_ops_system_prompt
+from shared.agent_harness.tooldef import ToolCategory
+from worker.agent.tools._prompts import build_ops_system_prompt, build_web_ops_system_prompt
 
 # Kept here from the legacy worker/agent/tools.py (now deleted) for SlackConversationWorkflow.
 CONVERSATION_TOOLS = [
@@ -96,4 +97,17 @@ for _info in pkgutil.iter_modules([str(_pkg_path)]):
     _register_module_subactivities(_module)
 
 
-__all__ = ["REPAIR_TOOLS", "OPS_TOOLS", "CONVERSATION_TOOLS", "build_ops_system_prompt"]
+# Read-only subset for the Slack-free in-dashboard ops chat (OpsChatWorkflow).
+# Computed after the loop above has imported every tool module and populated
+# OPS_TOOLS via the @ops_tool decorators.
+OPS_READ_TOOLS = [_td for _td in OPS_TOOLS if _td.category == ToolCategory.READ]
+
+
+__all__ = [
+    "REPAIR_TOOLS",
+    "OPS_TOOLS",
+    "OPS_READ_TOOLS",
+    "CONVERSATION_TOOLS",
+    "build_ops_system_prompt",
+    "build_web_ops_system_prompt",
+]

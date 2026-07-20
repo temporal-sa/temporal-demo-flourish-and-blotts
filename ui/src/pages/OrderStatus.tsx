@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Order, PendingDecision } from '../types'
-import { fetchOrder, fetchPendingDecision } from '../api'
+import { fetchOrder, fetchPendingDecision, fetchConfig } from '../api'
 import PendingDecisionCard from '../components/PendingDecisionCard'
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
   onBack: () => void
 }
 
-const MAILHOG_URL = import.meta.env.VITE_MAILHOG_UI_URL ?? 'http://localhost:8025'
+const DEFAULT_MAILHOG_URL = import.meta.env.VITE_MAILHOG_UI_URL ?? 'http://localhost:8025'
 
 const STATUS_COPY: Record<string, { label: string; emoji: string; tone: 'info' | 'good' | 'warn' | 'bad' }> = {
   pending: { label: 'Received', emoji: '📬', tone: 'info' },
@@ -42,6 +42,12 @@ export default function OrderStatus({ orderId, onBack }: Props) {
   const [pending, setPending] = useState<PendingDecision | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mailhogUrl, setMailhogUrl] = useState(DEFAULT_MAILHOG_URL)
+
+  // Runtime config — public MailHog URL on Cloud; falls back to the default.
+  useEffect(() => {
+    fetchConfig().then(c => { if (c?.mailhog_ui_url) setMailhogUrl(c.mailhog_ui_url) }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -123,7 +129,7 @@ export default function OrderStatus({ orderId, onBack }: Props) {
             Watch in Temporal →
           </a>
           <a
-            href={MAILHOG_URL}
+            href={mailhogUrl}
             target="_blank"
             rel="noreferrer"
             className="text-xs px-3 py-1.5 rounded font-semibold"

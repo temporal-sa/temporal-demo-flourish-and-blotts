@@ -1,4 +1,4 @@
-import type { Book, Order, Stats, PlaceOrderRequest, PendingDecision } from './types'
+import type { Book, Order, Stats, PlaceOrderRequest, PendingDecision, OpsChatTranscript, AppConfig } from './types'
 
 const BASE = '/api'
 
@@ -102,4 +102,33 @@ export async function submitCustomerDecision(
     body: JSON.stringify({ decision }),
   })
   if (!res.ok) throw new Error(await res.text())
+}
+
+// Runtime UI config (Temporal UI + MailHog URLs) so the SPA doesn't bake
+// deploy-specific URLs at build time. Returns null if unavailable.
+export async function fetchConfig(): Promise<AppConfig | null> {
+  try {
+    const res = await fetch(`${BASE}/config`)
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
+
+// Ops-agent chat: signal a message into the conversation's OpsChatWorkflow.
+export async function sendOpsChatMessage(conversationId: string, text: string): Promise<void> {
+  const res = await fetch(`${BASE}/ops/chat/${conversationId}/message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+}
+
+// Poll the ops-agent conversation transcript (workflow query).
+export async function fetchOpsChatTranscript(conversationId: string): Promise<OpsChatTranscript> {
+  const res = await fetch(`${BASE}/ops/chat/${conversationId}`)
+  if (!res.ok) return { turns: [], processing: false, closed: false }
+  return res.json()
 }
