@@ -1,4 +1,5 @@
 import type { Book, CartItem } from '../types'
+import { getBookCoverSrc } from '../bookCovers'
 
 interface Props {
   book: Book
@@ -6,78 +7,72 @@ interface Props {
   onAddToCart: (book: Book) => void
 }
 
-const CATEGORY_BADGES: Record<string, { label: string; color: string }> = {
-  standard: { label: 'Standard', color: '#2d6a2d' },
-  dangerous: { label: '⚠ Dangerous', color: '#8b4513' },
-  restricted: { label: '🔒 Restricted', color: '#8b0000' },
-  rare: { label: '✨ Rare', color: '#4a1942' },
+const CATEGORY_BADGES: Record<string, string> = {
+  standard: 'Hogwarts Text',
+  dangerous: 'Handle with Care',
+  restricted: 'Restricted',
+  rare: 'Rare Edition',
 }
 
 export default function BookCard({ book, cartItem, onAddToCart }: Props) {
   const badge = CATEGORY_BADGES[book.category] || CATEGORY_BADGES.standard
+  const coverSrc = getBookCoverSrc(book.id)
   const outOfStock = book.in_stock === 0
+  const lowStock = book.in_stock > 0 && book.in_stock <= 3
 
   return (
-    <div
-      className="rounded-lg shadow-md overflow-hidden flex flex-col"
-      style={{ backgroundColor: 'white', border: '1px solid #d4c9a8' }}
-    >
-      {/* Book spine / cover */}
-      <div
-        className="h-40 flex items-center justify-center relative"
-        style={{ backgroundColor: book.cover_color }}
-      >
-        <div className="text-center px-4">
-          <div className="font-display text-sm font-bold leading-tight" style={{ color: 'rgba(255,255,255,0.95)' }}>
-            {book.title}
-          </div>
-          <div className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            {book.author}
-          </div>
-        </div>
-        <div
-          className="absolute top-2 right-2 text-xs px-2 py-0.5 rounded-full font-semibold"
-          style={{ backgroundColor: badge.color, color: 'white' }}
-        >
-          {badge.label}
+    <article className="book-card">
+      <div className="book-cover-shell" style={{ backgroundColor: book.cover_color }}>
+        {coverSrc && (
+          <img
+            src={coverSrc}
+            alt=""
+            className="book-cover-image"
+            loading="lazy"
+            width="600"
+            height="800"
+          />
+        )}
+        <div className="book-cover-vignette" />
+        <span className={`category-badge category-badge--${book.category}`}>
+          {badge}
+        </span>
+        <div className="book-cover-lettering">
+          <h3 className="book-cover-title">{book.title}</h3>
+          <p className="book-cover-author">by {book.author}</p>
         </div>
       </div>
 
-      {/* Details */}
-      <div className="p-3 flex flex-col flex-1">
-        <p className="text-sm leading-snug flex-1" style={{ color: '#4a3728' }}>
+      <div className="book-card-body">
+        <p className="book-description">
           {book.description}
         </p>
 
         {book.requires_ministry_approval && (
-          <p className="text-xs mt-2 font-semibold" style={{ color: '#8b0000' }}>
-            🏛️ Ministry approval required
+          <p className="ministry-notice">
+            Ministry approval required
           </p>
         )}
 
-        <div className="mt-3 flex items-center justify-between">
-          <div>
-            <span className="font-display text-lg font-bold" style={{ color: 'var(--hp-gold)' }}>
-              {book.price_galleons}G
-            </span>
-            <span className="text-xs ml-2" style={{ color: '#888' }}>
-              {book.in_stock} in stock
+        <div className="book-purchase-row">
+          <div className="book-price-block">
+            <span className="book-price">{book.price_galleons} G</span>
+            <span className={`stock-status${lowStock ? ' stock-status--low' : ''}`}>
+              <span className="stock-dot" />
+              {outOfStock ? 'Out of stock' : lowStock ? `Only ${book.in_stock} left` : `${book.in_stock} in stock`}
             </span>
           </div>
 
           <button
             onClick={() => onAddToCart(book)}
             disabled={outOfStock}
-            className="px-3 py-1.5 rounded text-sm font-semibold transition-colors disabled:opacity-40"
-            style={{
-              backgroundColor: outOfStock ? '#ccc' : 'var(--hp-navy)',
-              color: 'white',
-            }}
+            className={`add-to-cart-button${cartItem ? ' add-to-cart-button--added' : ''}`}
+            aria-label={cartItem ? `Add another copy of ${book.title} to your satchel` : `Add ${book.title} to your satchel`}
           >
-            {cartItem ? `In cart (${cartItem.quantity})` : 'Add to Cart'}
+            {cartItem ? `In satchel · ${cartItem.quantity}` : 'Add to satchel'}
           </button>
         </div>
       </div>
-    </div>
+    </article>
   )
 }
