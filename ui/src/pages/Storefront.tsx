@@ -9,6 +9,13 @@ interface Props {
   onTrackOrder: (orderId: string) => void
 }
 
+const FILTERS = [
+  { value: 'all', label: 'All shelves' },
+  { value: 'standard', label: 'School texts' },
+  { value: 'dangerous', label: 'Dangerous' },
+  { value: 'restricted', label: 'Restricted' },
+] as const
+
 export default function Storefront({ onTrackOrder }: Props) {
   const [books, setBooks] = useState<Book[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -46,88 +53,100 @@ export default function Storefront({ onTrackOrder }: Props) {
   const filtered = filter === 'all' ? books : books.filter(b => b.category === filter)
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      {/* Hero */}
-      <div
-        className="rounded-xl p-6 mb-6 text-center"
-        style={{ backgroundColor: 'var(--hp-navy)', backgroundImage: 'radial-gradient(ellipse at center, #2a3060 0%, var(--hp-navy) 70%)' }}
-      >
-        <h2 className="font-display text-3xl font-bold mb-2" style={{ color: 'var(--hp-gold)' }}>
-          Welcome to Flourish & Blotts
-        </h2>
-        <p className="max-w-xl mx-auto" style={{ color: '#a0a8c8' }}>
-          The finest purveyor of magical literature in Diagon Alley. From standard school texts
-          to the most dangerously enchanted tomes — if it's printed on wizarding parchment, we stock it.
-        </p>
-        <p className="text-xs mt-2" style={{ color: '#5a6080' }}>
-          ⚠️ Flourish & Blotts accepts no responsibility for escaped books, Ministry raids, or owl-related delays.
-        </p>
-      </div>
-
-      {/* Order confirmation banner */}
-      {confirmation && (
-        <div
-          className="rounded-lg p-4 mb-4 flex items-center justify-between"
-          style={{ backgroundColor: '#e8f5e9', border: '1px solid #2d6a2d' }}
-        >
-          <div>
-            <p className="font-semibold" style={{ color: '#2d6a2d' }}>
-              ✅ Order {confirmation.orderId} placed successfully!
-            </p>
-            <p className="text-sm" style={{ color: '#555' }}>
-              Your order is now being processed by the Temporal OMS.
-            </p>
+    <div className="storefront-page">
+      <section className="catalog-hero" aria-labelledby="catalog-hero-title">
+        <div className="hero-spark hero-spark--one" aria-hidden="true">✦</div>
+        <div className="hero-spark hero-spark--two" aria-hidden="true">·</div>
+        <div className="catalog-hero-copy">
+          <p className="hero-eyebrow">Diagon Alley · London</p>
+          <h2 id="catalog-hero-title">A little magic<br />for every shelf.</h2>
+          <p className="hero-intro">
+            Browse schoolroom essentials, spellbound curiosities, and closely guarded
+            volumes from the wizarding world’s most storied bookseller.
+          </p>
+          <div className="hero-promises" aria-label="Shop services">
+            <span><strong>1734</strong> Established</span>
+            <span><strong>Worldwide</strong> Owl post</span>
+            <span><strong>Expert</strong> Curation</span>
           </div>
-          <div className="flex gap-2">
+        </div>
+        <div className="hero-notice">
+          <div className="hero-notice-pin" aria-hidden="true" />
+          <p className="hero-notice-kicker">Today’s shop notice</p>
+          <h3>Mind the third shelf.</h3>
+          <p>The Monster Book shipment is restless. Please stroke the spine before opening.</p>
+          <div className="hero-notice-signoff">— The Management</div>
+        </div>
+      </section>
+
+      {confirmation && (
+        <div className="order-confirmation" role="status" aria-live="polite">
+          <div>
+            <p className="order-confirmation-title">Your order is on the move.</p>
+            <p>Order {confirmation.orderId} is now being processed by the Temporal OMS.</p>
+          </div>
+          <div className="order-confirmation-actions">
             <button
               onClick={() => onTrackOrder(confirmation.orderId)}
-              className="text-sm px-3 py-1.5 rounded font-semibold"
-              style={{ backgroundColor: 'var(--hp-gold)', color: 'var(--hp-navy)' }}
+              className="confirmation-primary"
             >
-              Track your order →
+              Track order
             </button>
             <a
               href={confirmation.temporalUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-sm px-3 py-1.5 rounded font-semibold"
-              style={{ backgroundColor: '#2d5a8a', color: 'white' }}
+              className="confirmation-secondary"
             >
-              Watch in Temporal →
+              View in Temporal
             </a>
-            <button onClick={() => setConfirmation(null)} className="text-sm" style={{ color: '#888' }}>✕</button>
+            <button
+              onClick={() => setConfirmation(null)}
+              className="confirmation-dismiss"
+              aria-label="Dismiss order confirmation"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}
 
-      <div className="flex gap-6">
-        {/* Catalog */}
-        <div className="flex-1">
-          {/* Category filter */}
-          <div className="flex gap-2 mb-4">
-            {(['all', 'standard', 'dangerous', 'restricted'] as const).map(f => (
+      <section className="catalog-toolbar" aria-labelledby="shelves-title">
+        <div>
+          <p className="catalog-kicker">Browse the shelves</p>
+          <h2 id="shelves-title">Enchanted editions</h2>
+        </div>
+        <div className="catalog-filter-group" aria-label="Filter books by collection">
+          <div className="catalog-filters">
+            {FILTERS.map(({ value, label }) => (
               <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className="px-3 py-1.5 rounded text-sm font-semibold transition-colors capitalize"
-                style={{
-                  backgroundColor: filter === f ? 'var(--hp-navy)' : 'white',
-                  color: filter === f ? 'var(--hp-gold)' : '#666',
-                  border: '1px solid #d4c9a8',
-                }}
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`catalog-filter${filter === value ? ' catalog-filter--active' : ''}`}
+                aria-pressed={filter === value}
               >
-                {f === 'all' ? 'All Books' : f}
+                {label}
               </button>
             ))}
-            <span className="ml-auto text-sm self-center" style={{ color: '#888' }}>
-              {filtered.length} title{filtered.length !== 1 ? 's' : ''}
-            </span>
           </div>
+          <span className="catalog-count">
+            {filtered.length} title{filtered.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </section>
 
+      <div className="catalog-layout">
+        <div className="catalog-main">
           {loading ? (
-            <div className="text-center py-12" style={{ color: '#888' }}>Loading catalogue...</div>
+            <div className="book-grid" aria-label="Loading catalogue">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div className="book-card-skeleton" key={index} />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="catalog-empty">No books are waiting on this shelf.</div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="book-grid">
               {filtered.map(book => (
                 <BookCard
                   key={book.id}
@@ -140,9 +159,8 @@ export default function Storefront({ onTrackOrder }: Props) {
           )}
         </div>
 
-        {/* Cart sidebar */}
-        <div className="w-72 flex-shrink-0">
-          <div className="sticky top-4">
+        <div className="cart-column">
+          <div className="cart-sticky">
             <Cart
               items={cart}
               onRemove={removeFromCart}
@@ -150,6 +168,11 @@ export default function Storefront({ onTrackOrder }: Props) {
             />
           </div>
         </div>
+      </div>
+
+      <div className="catalog-disclaimer">
+        Flourish &amp; Blotts accepts no responsibility for escaped books, Ministry raids,
+        spontaneous prophecies, or owl-related delays.
       </div>
 
       {showCheckout && cart.length > 0 && (
