@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { OpsChatTurn } from '../types'
 import { sendOpsChatMessage, fetchOpsChatTranscript } from '../api'
 
@@ -8,10 +10,31 @@ function newConversationId(): string {
 }
 
 const SUGGESTIONS = [
-  "What's been failing in the last hour?",
-  'Summarise orders currently awaiting a human decision',
-  'Which books have an inventory mismatch?',
+  "Read the last hour's failures",
+  'Show orders awaiting a human decision',
+  'Find every inventory mismatch',
 ]
+
+const MARKDOWN_COMPONENTS: Components = {
+  a({ href, children }) {
+    const isExternal = href?.startsWith('http://') || href?.startsWith('https://')
+    return (
+      <a href={href} target={isExternal ? '_blank' : undefined} rel={isExternal ? 'noreferrer' : undefined}>
+        {children}
+      </a>
+    )
+  },
+}
+
+function AgentMarkdown({ children }: { children: string }) {
+  return (
+    <div className="ops-markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+        {children}
+      </ReactMarkdown>
+    </div>
+  )
+}
 
 export default function OpsAgentChat() {
   const [conversationId, setConversationId] = useState<string>(newConversationId)
@@ -22,17 +45,15 @@ export default function OpsAgentChat() {
   const [started, setStarted] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Poll the workflow transcript once the conversation has started.
   useEffect(() => {
     if (!started) return
     let cancelled = false
     async function tick() {
-      const t = await fetchOpsChatTranscript(conversationId)
+      const transcript = await fetchOpsChatTranscript(conversationId)
       if (cancelled) return
-      // Only overwrite once the server has caught up to our optimistic messages,
-      // so a poll that races ahead of the signal doesn't blank the user's line.
-      setTurns(prev => (t.turns.length >= prev.length ? t.turns : prev))
-      setProcessing(t.processing)
+      // Do not let a poll that races the signal remove the optimistic human turn.
+      setTurns(previous => (transcript.turns.length >= previous.length ? transcript.turns : previous))
+      setProcessing(transcript.processing)
     }
     tick()
     const id = setInterval(tick, 1500)
@@ -48,12 +69,15 @@ export default function OpsAgentChat() {
     if (!trimmed || sending) return
     setSending(true)
     setStarted(true)
-    setTurns(prev => [...prev, { role: 'human', content: trimmed, timestamp: '' }])
+    setTurns(previous => [...previous, { role: 'human', content: trimmed, timestamp: '' }])
     setInput('')
     try {
       await sendOpsChatMessage(conversationId, trimmed)
-    } catch (e: any) {
-      setTurns(prev => [...prev, { role: 'agent', content: `⚠️ Failed to send: ${e.message}`, timestamp: '' }])
+    } catch (error: any) {
+      setTurns(previous => [
+        ...previous,
+        { role: 'agent', content: `> **The consultation could not be delivered.**\n\n${error.message}`, timestamp: '' },
+      ])
     } finally {
       setSending(false)
     }
@@ -68,102 +92,124 @@ export default function OpsAgentChat() {
   }
 
   return (
-    <div
-      className="rounded-lg mb-4 flex flex-col"
-      style={{ backgroundColor: 'white', border: '1px solid #d4c9a8', height: 420 }}
-    >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-2 rounded-t-lg"
-        style={{ backgroundColor: 'var(--hp-navy)' }}
-      >
-        <span className="font-semibold text-sm" style={{ color: 'var(--hp-gold)' }}>
-          🪄 Ops Agent — ask about the live OMS
-        </span>
-        <button
-          onClick={reset}
-          className="text-xs px-2 py-1 rounded"
-          style={{ backgroundColor: 'transparent', color: 'var(--hp-gold)', border: '1px solid var(--hp-gold)' }}
-        >
-          New chat
-        </button>
-      </div>
+    <section className="ops-counsel-shell" aria-labelledby="counsel-title">
+      <aside className="counsel-presence">
+        <div className="counsel-portrait-frame">
+          <div className="counsel-portrait-glow" />
+          <img
+            src="/images/ops/counsel-hat.jpg"
+            alt="An ancient, expressive counsel hat"
+            className="counsel-portrait"
+            width="900"
+            height="900"
+          />
+        </div>
+        <p className="counsel-kicker">Durable consultation</p>
+        <h3 id="counsel-title">The Counsel Hat</h3>
+        <p className="counsel-description">
+          Listening across workflow histories, repair attempts, and the occasional suspicious bookshelf.
+        </p>
+        <div className="counsel-status">
+          <span aria-hidden="true" />
+          {processing ? 'Divining the event history' : 'Ready to consult'}
+        </div>
+      </aside>
 
-      {/* Transcript */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {turns.length === 0 && (
-          <div className="text-sm" style={{ color: '#888' }}>
-            <p className="mb-2">
-              Ask the durable ops agent about orders, repairs, and inventory. Every message runs a
-              read-only Temporal workflow you can open in the Temporal UI.
-            </p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {SUGGESTIONS.map(s => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  className="text-xs px-2 py-1 rounded"
-                  style={{ backgroundColor: 'var(--hp-parchment)', border: '1px solid #d4c9a8', color: 'var(--hp-navy)' }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+      <div className="counsel-conversation">
+        <header className="counsel-chat-header">
+          <div>
+            <p>Operations divination</p>
+            <strong>Ask about the live order realm</strong>
           </div>
-        )}
+          <button onClick={reset} className="counsel-reset">
+            New consultation
+          </button>
+        </header>
 
-        {turns.map((t, i) => {
-          const isAgent = t.role === 'agent'
-          return (
-            <div key={i} className={`flex ${isAgent ? 'justify-start' : 'justify-end'}`}>
-              <div
-                className="max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap"
-                style={{
-                  backgroundColor: isAgent ? 'var(--hp-parchment)' : 'var(--hp-navy)',
-                  color: isAgent ? '#1a1f3a' : 'var(--hp-gold)',
-                  border: isAgent ? '1px solid #d4c9a8' : 'none',
-                }}
-              >
-                {t.content}
+        <div ref={scrollRef} className="counsel-transcript" aria-live="polite">
+          {turns.length === 0 && (
+            <div className="counsel-welcome">
+              <p className="counsel-welcome-quote">
+                “Place a question before me. I shall read the threads already woven.”
+              </p>
+              <p>
+                Every message runs through a durable Temporal workflow. Agent replies support
+                headings, lists, tables, links, blockquotes, and fenced code.
+              </p>
+              <div className="counsel-suggestions">
+                {SUGGESTIONS.map(suggestion => (
+                  <button key={suggestion} onClick={() => send(suggestion)}>
+                    <span aria-hidden="true">✦</span>
+                    {suggestion}
+                  </button>
+                ))}
               </div>
             </div>
-          )
-        })}
+          )}
 
-        {processing && (
-          <div className="flex justify-start">
-            <div
-              className="rounded-lg px-3 py-2 text-sm"
-              style={{ backgroundColor: 'var(--hp-parchment)', color: '#888', border: '1px solid #d4c9a8' }}
-            >
-              🔮 thinking…
+          {turns.map((turn, index) => {
+            const isAgent = turn.role === 'agent'
+            return (
+              <div key={index} className={`counsel-message counsel-message--${isAgent ? 'agent' : 'operator'}`}>
+                <div className="counsel-message-avatar" aria-hidden="true">
+                  {isAgent ? (
+                    <img src="/images/ops/counsel-hat.jpg" alt="" width="42" height="42" />
+                  ) : (
+                    <span>OP</span>
+                  )}
+                </div>
+                <div className="counsel-message-column">
+                  <p className="counsel-message-role">{isAgent ? 'The Counsel Hat' : 'Operator'}</p>
+                  <div className="counsel-message-bubble">
+                    {isAgent ? <AgentMarkdown>{turn.content}</AgentMarkdown> : turn.content}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {processing && (
+            <div className="counsel-message counsel-message--agent">
+              <div className="counsel-message-avatar" aria-hidden="true">
+                <img src="/images/ops/counsel-hat.jpg" alt="" width="42" height="42" />
+              </div>
+              <div className="counsel-message-column">
+                <p className="counsel-message-role">The Counsel Hat</p>
+                <div className="counsel-thinking">
+                  Reading the threads of history
+                  <span aria-hidden="true"><i /><i /><i /></span>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Composer */}
-      <form
-        onSubmit={e => { e.preventDefault(); send(input) }}
-        className="flex gap-2 p-3 border-t"
-        style={{ borderColor: '#e0d8b8' }}
-      >
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Ask the ops agent…"
-          className="flex-1 rounded px-3 py-2 text-sm border"
-          style={{ borderColor: '#d4c9a8' }}
-        />
-        <button
-          type="submit"
-          disabled={sending || !input.trim()}
-          className="px-4 py-2 rounded font-semibold text-sm transition-opacity disabled:opacity-50"
-          style={{ backgroundColor: 'var(--hp-dark-red)', color: 'white' }}
+        <form
+          onSubmit={event => { event.preventDefault(); send(input) }}
+          className="counsel-composer"
         >
-          Send
-        </button>
-      </form>
-    </div>
+          <label htmlFor="counsel-input">Your question</label>
+          <div className="counsel-composer-row">
+            <textarea
+              id="counsel-input"
+              value={input}
+              onChange={event => setInput(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  send(input)
+                }
+              }}
+              placeholder="Ask what has failed, what needs attention, or how a repair unfolded…"
+              rows={2}
+            />
+            <button type="submit" disabled={sending || !input.trim()}>
+              {sending ? 'Sending…' : 'Consult'}
+            </button>
+          </div>
+          <p>Enter to send · Shift + Enter for a new line</p>
+        </form>
+      </div>
+    </section>
   )
 }

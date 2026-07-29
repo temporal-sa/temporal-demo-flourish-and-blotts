@@ -24,7 +24,7 @@ export default function OpsDashboard() {
   const [bulkResult, setBulkResult] = useState<string | null>(null)
   const [liveConnected, setLiveConnected] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<string | null>(null)
-  const [showChat, setShowChat] = useState(false)
+  const [showChat, setShowChat] = useState(true)
   const [temporalUi, setTemporalUi] = useState(DEFAULT_TEMPORAL_UI)
 
   // Runtime config — correct Temporal UI URL on Cloud; falls back to the default.
@@ -101,119 +101,122 @@ export default function OpsDashboard() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--hp-navy)' }}>
-            Order Operations Centre
-          </h2>
-          <p className="text-sm" style={{ color: '#666' }}>
-            Real-time order monitoring · Agentic repair tracking · HITL management
+    <div className="ops-page">
+      <section className="ops-dashboard-hero">
+        <img
+          src="/images/ops/tardigrade-time-seal.jpg"
+          alt=""
+          aria-hidden="true"
+          title="A tiny guardian of durable time"
+          className="ops-time-seal"
+          width="500"
+          height="500"
+        />
+        <div className="ops-dashboard-hero-copy">
+          <p className="ops-eyebrow">Flourish &amp; Blotts · Back office</p>
+          <h2>Order Operations Chamber</h2>
+          <p>
+            Watch every order, repair, and human decision unfold across the durable timeline.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-xs" style={{ color: liveConnected ? '#2d6a2d' : '#888' }}>
-            <span className={`inline-block w-2 h-2 rounded-full ${liveConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
-            {liveConnected ? 'Live' : 'Connecting...'}
+        <div className="ops-dashboard-actions">
+          <div className={`ops-live-status${liveConnected ? ' ops-live-status--connected' : ''}`}>
+            <span aria-hidden="true" />
+            {liveConnected ? 'Live timeline' : 'Opening channel'}
           </div>
           <button
             onClick={() => setShowChat(v => !v)}
-            className="text-xs px-3 py-1.5 rounded font-semibold"
-            style={{
-              backgroundColor: showChat ? 'var(--hp-gold)' : 'transparent',
-              color: showChat ? 'var(--hp-navy)' : 'var(--hp-gold)',
-              border: '1px solid var(--hp-gold)',
-            }}
+            className={`ops-counsel-toggle${showChat ? ' ops-counsel-toggle--active' : ''}`}
+            aria-expanded={showChat}
           >
-            🪄 Ops Agent
+            <span aria-hidden="true">✦</span>
+            {showChat ? 'Close counsel' : 'Consult the hat'}
           </button>
           <a
             href={temporalUi}
             target="_blank"
             rel="noreferrer"
-            className="text-xs px-3 py-1.5 rounded font-semibold"
-            style={{ backgroundColor: 'var(--hp-navy)', color: 'var(--hp-gold)' }}
+            className="ops-temporal-link"
           >
-            🔮 Temporal Web UI →
+            Temporal Web UI <span aria-hidden="true">↗</span>
           </a>
         </div>
-      </div>
+      </section>
 
-      {/* Stats */}
       <StatsBar stats={stats} />
 
-      {/* Ops agent chat — toggled from the header button */}
       {showChat && <OpsAgentChat />}
 
-      {/* Bulk order fire */}
-      <div
-        className="rounded-lg p-4 mb-4 flex flex-wrap items-center gap-3"
-        style={{ backgroundColor: 'white', border: '1px solid #d4c9a8' }}
-      >
-        <div>
-          <span className="font-semibold text-sm">🔥 Fire Bulk Orders</span>
-          <span className="text-xs ml-2" style={{ color: '#888' }}>
-            Simulates a rush of orders with randomised HP characters and failure distribution
-          </span>
+      <section className="ops-bulk-panel">
+        <div className="ops-bulk-mark" aria-hidden="true">⚡</div>
+        <div className="ops-bulk-copy">
+          <p className="ops-eyebrow">Demo controls</p>
+          <h3>Conjure a rush of orders</h3>
+          <p>Creates randomized wizarding customers and a representative failure distribution.</p>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="ops-bulk-controls">
+          <label htmlFor="bulk-order-count">Order count</label>
           <input
+            id="bulk-order-count"
             type="number"
             min={1}
             max={500}
             value={bulkCount}
             onChange={e => setBulkCount(Number(e.target.value))}
-            className="w-20 rounded px-2 py-1.5 text-sm border text-center"
-            style={{ borderColor: '#d4c9a8' }}
           />
           <button
             onClick={handleBulkOrders}
             disabled={bulkLoading}
-            className="px-4 py-1.5 rounded font-semibold text-sm transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: 'var(--hp-dark-red)', color: 'white' }}
           >
-            {bulkLoading ? 'Casting...' : `Fire ${bulkCount} Orders`}
+            {bulkLoading ? 'Casting…' : `Conjure ${bulkCount}`}
           </button>
-          {bulkResult && (
-            <span className="text-sm" style={{ color: bulkResult.startsWith('✅') ? '#2d6a2d' : '#8b0000' }}>
-              {bulkResult}
-            </span>
-          )}
         </div>
-      </div>
+        {bulkResult && (
+          <span className={`ops-bulk-result${bulkResult.startsWith('✅') ? ' ops-bulk-result--good' : ''}`}>
+            {bulkResult}
+          </span>
+        )}
+      </section>
 
-      {/* Action feedback */}
       {actionFeedback && (
-        <div
-          className="rounded p-2 mb-3 text-sm font-semibold"
-          style={{
-            backgroundColor: actionFeedback.startsWith('✅') || actionFeedback.startsWith('🚫') ? '#f0f8f0' : '#fff0f0',
-            border: '1px solid',
-            borderColor: actionFeedback.startsWith('✅') || actionFeedback.startsWith('🚫') ? '#2d6a2d' : '#8b0000',
-            color: actionFeedback.startsWith('✅') || actionFeedback.startsWith('🚫') ? '#2d6a2d' : '#8b0000',
-          }}
-        >
+        <div className={`ops-action-feedback${actionFeedback.startsWith('❌') ? ' ops-action-feedback--bad' : ''}`} role="status">
           {actionFeedback}
         </div>
       )}
 
-      {/* Filters */}
-      <FilterPanel filters={filters} onChange={setFilters} />
+      <section className="ops-ledger" aria-labelledby="order-ledger-title">
+        <img
+          src="/images/ops/tardigrade-marginalia.jpg"
+          alt=""
+          aria-hidden="true"
+          title="Something patient is watching the timeline"
+          className="ops-ledger-marginalia"
+          width="700"
+          height="700"
+        />
+        <header className="ops-ledger-header">
+          <div>
+            <p className="ops-eyebrow">Live records</p>
+            <h3 id="order-ledger-title">The Order Ledger</h3>
+          </div>
+          <div className="ops-ledger-count">
+            <strong>{filtered.length}</strong>
+            <span>
+              order{filtered.length !== 1 ? 's' : ''} shown
+              {filtered.length !== orders.length && ` of ${orders.length}`}
+            </span>
+          </div>
+        </header>
 
-      {/* Order count */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm" style={{ color: '#666' }}>
-          {filtered.length} order{filtered.length !== 1 ? 's' : ''} shown
-          {filtered.length !== orders.length && ` (${orders.length} total)`}
-        </p>
-        <p className="text-xs" style={{ color: '#aaa' }}>
-          Updates every 3s via SSE
-        </p>
-      </div>
+        <FilterPanel filters={filters} onChange={setFilters} />
 
-      {/* Table */}
-      <OrderTable orders={filtered} onApprove={handleApprove} onDeny={handleDeny} />
+        <div className="ops-ledger-refresh">
+          <span aria-hidden="true" />
+          Ledger ink refreshes every three seconds via SSE
+        </div>
+
+        <OrderTable orders={filtered} onApprove={handleApprove} onDeny={handleDeny} />
+      </section>
     </div>
   )
 }
