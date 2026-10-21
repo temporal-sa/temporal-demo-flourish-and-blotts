@@ -103,6 +103,8 @@ That's it. Open:
 | `http://localhost:8025` | MailHog inbox (customer HITL emails) |
 | `http://localhost:8000/docs` | FastAPI docs (catalog, orders, inventory APIs) |
 
+To present the demo, follow [RUNBOOK.md](RUNBOOK.md): the walkthrough beat by beat, and where in the code each part happens.
+
 Tear down with `make docker-down`. Or `make clean` to also wipe the Docker images and the
 UI's `node_modules`.
 
