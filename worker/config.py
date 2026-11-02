@@ -13,7 +13,12 @@ TEMPORAL_NAMESPACE = os.getenv("TEMPORAL_NAMESPACE", "default")
 # Local dev points at the dev-server default namespace; on Temporal Cloud this is
 # set to the derived Cloud namespace URL, e.g.
 # https://cloud.temporal.io/namespaces/tmprl-dem-cld-flourish-and-blotts.<acct>
-TEMPORAL_UI_URL = os.getenv("TEMPORAL_UI_URL", "http://localhost:8233/namespaces/default")
+TEMPORAL_UI_URL = os.getenv("TEMPORAL_UI_URL", "http://localhost:8233/namespaces/default").rstrip("/")
+# tmprl-demo.cloud injects the UI *base* (https://cloud.temporal.io, or a crashable
+# workspace's /_temporal) plus TEMPORAL_UI_NAMESPACE; TEMPORAL_NAMESPACE is the proxy's
+# "default". Build the namespace view from the two unless the URL already names one.
+if os.getenv("TEMPORAL_UI_NAMESPACE") and "/namespaces/" not in TEMPORAL_UI_URL:
+    TEMPORAL_UI_URL = f"{TEMPORAL_UI_URL}/namespaces/{os.environ['TEMPORAL_UI_NAMESPACE']}"
 
 # API base URL — used by the worker for intra-container HTTP calls (canonical
 # inventory store: /api/inventory/{reserve,release,adjust}, /api/catalog).
